@@ -12,7 +12,20 @@
 
 #include "proj2.h"
 
-int main()
+int main(int argc, char *argv[])
 {
-    printf("Hello World!\n");
+    int NZ, NU, TZ, TU, F;
+    if(parse_args(argc, argv, &NZ, &NU, &TZ, &TU, &F) == 1)
+    {   
+        // Invalid Arguments
+        return 1;
+    }
+
+    printf("%d\n", NZ);
+    printf("%d\n", NU);
+    printf("%d\n", TZ);
+    printf("%d\n", TU);
+    printf("%d\n", F);
+
+    return 0;
 }
