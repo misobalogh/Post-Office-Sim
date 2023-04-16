@@ -19,11 +19,31 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    printf("%d\n", NZ);
-    printf("%d\n", NU);
-    printf("%d\n", TZ);
-    printf("%d\n", TU);
-    printf("%d\n", F);
+    if (open_file(&output_file) != 0)
+    {
+        // Error opening file
+        return 1;
+    }
+    fifo_queue_t *queue;
+    queue = init_queue();
+    
+    customer(1, queue, 1);
+    customer(2, queue, 1);
+    customer(3, queue, 1);
+    customer(4, queue, 3);
+    
+    get_in_queue(queue, 1, 1);
+    get_in_queue(queue, 2, 1);
+    get_in_queue(queue, 3, 1);
+    get_in_queue(queue, 3, 2);
+    leave_queue(queue, 3, 2);
+    leave_queue(queue, 3, 3);
+    get_in_queue(queue, 3, 3);
+    get_in_queue(queue, 1, 4);
+
+    destroy_queue(queue);
+
+    cleanup();
 
     return 0;
 }

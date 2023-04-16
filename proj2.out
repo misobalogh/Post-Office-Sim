@@ -1,0 +1,20 @@
+1:  customer 1: started
+2:  customer 1: finished
+3:  customer 1: enters queue 2
+4:  customer 2: started
+5:  customer 2: finished
+6:  customer 2: enters queue 1
+7:  customer 3: started
+8:  customer 3: finished
+9:  customer 3: enters queue 3
+10:  customer 4: started
+11:  customer 4: finished
+12:  customer 4: enters queue 2
+13:  customer 1: enters queue 1
+14:  customer 1: enters queue 2
+15:  customer 1: enters queue 3
+16:  customer 2: enters queue 3
+17:  customer 2: leaves queue 3
+18:  customer 3: leaves queue 3
+19:  customer 3: enters queue 3
+20:  customer 4: enters queue 1

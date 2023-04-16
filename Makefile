@@ -13,11 +13,21 @@ CFLAGS = -std=gnu99 -Wall -Wextra -Werror -pedantic
 CC = gcc
 
 
+all: proj2
+	./proj2 1 1 1 1 1 && cat proj2.out
+
 proj2: proj2.c proj2.h
 	$(CC) $(CFLAGS) -o proj2 proj2.c
+
+val:
+	valgrind ./proj2 1 1 1 1 1
+
+test:
+	./test.sh
 
 zip:
 	zip proj2.zip proj2.c proj2.h Makefile
 
 clean:
 	rm proj2
+
