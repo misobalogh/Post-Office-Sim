@@ -18,14 +18,11 @@ static FILE *output_file;
 int *num_of_prints;
 int *closed;
 
-
 sem_t queue[3];
 sem_t customer_sem;
 
 sem_t *mutex;
 int customers = 0;
-
-
 
 //====================================================================================================
 
@@ -90,7 +87,7 @@ int open_file(FILE **file)
     return 0;
 }
 
-sem_t *new_semaphore()
+sem_t *new_semaphore(unsigned int value)
 {
     sem_t *sem = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (sem == MAP_FAILED)
@@ -100,7 +97,7 @@ sem_t *new_semaphore()
         exit(1);
     }
 
-    if (sem_init(sem, 1, 1) != 0)
+    if (sem_init(sem, 1, value) != 0)
     {
         fprintf(stderr, "Error: failed creating semaphore.\n");
         cleanup();
@@ -114,7 +111,7 @@ void init_semaphores(sem_t *mutex)
 {
     for (int i = 0; i < 7; i++)
     {
-        mutex[i] = *new_semaphore();
+        mutex[i] = *new_semaphore(1);
     }
 }
 
@@ -139,7 +136,7 @@ void print(FILE *file, const char *format, ...)
     vfprintf(file, format, args);
     fflush(file);
     va_end(args);
-    *num_of_prints+=1;
+    ++(*num_of_prints);
 }
 
 void cleanup()
@@ -172,43 +169,84 @@ void customer(int idZ, int TZ)
     print(output_file, "Z %d: started\n", idZ);
     usleep(rand() % TZ);
 
-    if (*closed) // closed
+    if (*closed) 
     {
         print(output_file, "Z %d: going home\n", idZ);
-        exit(1);
+        exit(0);
     }
 
     int activity_type = rand() % 3;
-    //sem_wait(&queue[activity_type]);
     print(output_file, "Z %d: entering office for a service %d\n", idZ, activity_type);
+    sem_wait(&queue[activity_type]);
 
-    // sem_wait
+    
     print(output_file, "Z %d: called by office worker\n", idZ);
     usleep(rand() % 10);
+    sem_post(&queue[activity_type]);
 
     print(output_file, "Z %d: going home\n", idZ);
     exit(0);
 }
 
-void office_worker(int id)
+void office_worker(int Uid, int TU)
 {
-    if (*closed)
+    print(output_file, "U %d: started\n", Uid);
+    while (1)
     {
-        print(output_file, "U %d: going home\n", id);
-        exit(1);
-    }
-    print(output_file, "U %d: started\n", id);
-    usleep(rand() % 10);
+        int queue_type;
+        int queue_size = 0;
 
-    print(output_file, "U %d: calling next customer\n", id);
-    usleep(rand() % 10);
+        // Check if any queue is not empty
+        for (int i = 0; i < 3; i++)
+        {
+            sem_getvalue(&queue[i], &queue_size);
+            if (queue_size != 0)
+            {
+                break;
+            }
+        }
+
+        if (queue_size == 0)
+        {
+            // If all queues are empty, take a break
+
+            if (*closed)
+            {
+                // If post mail is closed and all queues are empty, go home
+                print(output_file, "U %d: going home\n", Uid);
+                exit(0);
+            }
+            print(output_file, "U %d: taking break\n", Uid);
+            usleep(rand() % TU);
+            print(output_file, "U %d: break finished\n", Uid);
+            continue;
+        }
+        else
+        {
+            // Get random queue
+            while (queue_size == 0)
+            {
+                queue_type = rand() % 3;
+                sem_getvalue(&queue[queue_type], &queue_size);
+            }
+        }
+        
+        // Serve customer
+        sem_wait(&queue[queue_type]);
+        print(output_file, "U %d: serving a service of type X %d\n", Uid, queue_type);
+        usleep(rand() % 10);
+        print(output_file, "U %d:  service finished\n", Uid);
+        sem_post(&queue[queue_type]);
+    }
 }
 
-int* shared_var(int value) {
-    int* shared_int = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (shared_int == MAP_FAILED) {
+int *shared_int(int value)
+{
+    int *shared_int = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (shared_int == MAP_FAILED)
+    {
         perror("Error: failed creating shared memory");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
     *shared_int = value;
@@ -236,22 +274,33 @@ int main(int argc, char *argv[])
 
     // Seed random number generator
     srand(time(NULL));
-
+    
     // Create array of customers and workers
     int *customers_id = shuffle_id(NZ);
     int *office_workers_id = shuffle_id(NU);
 
-    // Create variable closed in shared memory
-    closed = shared_var(0);
-    num_of_prints = shared_var(1);
+    // Create variables in shared memory
+    closed = shared_int(0);
+    num_of_prints = shared_int(1);
 
+    // Create semaphores in shared memory
+    queue[0] = *new_semaphore(1);
+    queue[1] = *new_semaphore(1);
+    queue[2] = *new_semaphore(1);
 
     // sem_t sem[NU];
     // sem_t customer_done[NU];
     // sem_t office_worker[NZ];
 
-    int time_before_closing = F / 2 + rand() % (F / 2 + 1);
-    usleep(time_before_closing);
+     for (int i = 0; i < NU; i++)
+    {
+        pid_t pid = fork();
+        if (pid == 0)
+        {
+            office_worker(office_workers_id[i], TU);
+        }
+    }
+
 
     for (int i = 0; i < NZ; i++)
     {
@@ -262,20 +311,19 @@ int main(int argc, char *argv[])
         }
     }
 
-    for (int i = 0; i < NU; i++)
-    {
-        pid_t pid = fork();
-        if (pid == 0)
-        {
-            office_worker(office_workers_id[i]);
-        }
-    }
-    
+   
+
+    int time_before_closing = F / 2 + rand() % (F / 2 + 1);
+    usleep(time_before_closing);
+
+    sem_t *closed_sem = new_semaphore(1);
+    sem_wait(closed_sem);
     *closed = 1;
     print(output_file, "closing\n");
+    sem_post(closed_sem);
 
-
-    while (wait(NULL) > 0);
+    while (wait(NULL) > 0)
+        ;
 
     // Free memory
     free(customers_id);

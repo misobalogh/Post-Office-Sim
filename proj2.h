@@ -70,7 +70,7 @@ int open_file(FILE **file);
  * 
  * @return sem_t* Pointer to newly created semaphore.
  */
-sem_t *new_semaphore();
+sem_t *new_semaphore(unsigned int value);
 
 /**
  * @brief Frees all resources and closes file.
@@ -106,7 +106,7 @@ void customer(int id, int activity_type);
  * 
  * @param id Office worker ID.
  */
-void office_worker(int id);
+void office_worker(int id, int TU);
 
 /**
  * @brief Creates new shared variable of type int.
@@ -115,7 +115,7 @@ void office_worker(int id);
  * 
  * @return int* Pointer to shared variable.
  */
-int* shared_var(int value);
+int* shared_int(int value);
 
 //====================================================================================================
 
