@@ -1,20 +1,26 @@
-1:  customer 1: started
-2:  customer 1: finished
-3:  customer 1: enters queue 2
-4:  customer 2: started
-5:  customer 2: finished
-6:  customer 2: enters queue 1
-7:  customer 3: started
-8:  customer 3: finished
-9:  customer 3: enters queue 3
-10:  customer 4: started
-11:  customer 4: finished
-12:  customer 4: enters queue 2
-13:  customer 1: enters queue 1
-14:  customer 1: enters queue 2
-15:  customer 1: enters queue 3
-16:  customer 2: enters queue 3
-17:  customer 2: leaves queue 3
-18:  customer 3: leaves queue 3
-19:  customer 3: enters queue 3
-20:  customer 4: enters queue 1
+1:  Z 2: started
+1:  Z 4: started
+2:  Z 3: started
+2:  Z 5: started
+4:  Z 4: entering office for a service 2
+5:  Z 4: called by office worker
+7:  Z 3: entering office for a service 2
+7:  Z 4: going home
+8:  Z 3: called by office worker
+10:  Z 2: entering office for a service 2
+11:  Z 2: called by office worker
+7:  U 3: started
+11:  closing
+12:  Z 3: going home
+14:  Z 5: going home
+14:  U 4: going home
+15:  Z 2: going home
+17:  U 2: going home
+18:  Z 1: started
+18:  U 1: going home
+21:  U 3: calling next customer
+22:  Z 1: going home
+23:  U 2: going home
+23:  closing
+23:  U 1: going home
+25:  U 4: going home
