@@ -120,4 +120,120 @@ int* shared_int(int value);
 //====================================================================================================
 
 
+int parse_args(int argc, char *argv[], int *NZ, int *NU, int *TZ, int *TU, int *F)
+{
+    const int expected_num_args = 5;
 
+    if (argc != expected_num_args + 1)
+    {
+        fprintf(stderr, "Error: wrong number of arguments.\n");
+        return 1;
+    }
+
+    // Array of pointers that stores values of arguments.
+    int *arg_values[] = {NZ, NU, TZ, TU, F};
+
+    // Constraints for size of arguments TZ, TU, F.
+    const int max_values[] = {INT_MAX, INT_MAX, 10000, 100, 10000};
+
+    // Names of arguments for error message.
+    const char *arg_names[] = {"NZ", "NU", "TZ", "TU", "F"};
+
+    // Validate arguments.
+    for (int i = 0; i < expected_num_args; i++)
+    {
+        int arg_value = validate_arg(argv[i + 1]);
+
+        if (arg_value < 0 || arg_value > max_values[i])
+        {
+            fprintf(stderr, "Error: invalid argument %s.\n", arg_names[i]);
+            return 1;
+        }
+        // Store argument value.
+        *(arg_values[i]) = arg_value;
+    }
+
+    return 0;
+}
+
+int validate_arg(char *arg)
+{
+    char *endptr;
+    const long arg_value = strtol(arg, &endptr, 10);
+    // Check if argument was successfully converted to long.
+    if (endptr == arg || arg_value > INT_MAX)
+    {
+        return -1;
+    }
+
+    return arg_value;
+}
+
+int open_file(FILE **file)
+{
+    *file = fopen("proj2.out", "w");
+    if (*file == NULL)
+    {
+        fprintf(stderr, "Error: failed opening file.\n");
+        return 1;
+    }
+
+    return 0;
+}
+
+sem_t *new_semaphore(unsigned int value)
+{
+    sem_t *sem = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (sem == MAP_FAILED)
+    {
+        fprintf(stderr, "Error: failed creating semaphore.\n");
+        cleanup();
+        exit(1);
+    }
+
+    if (sem_init(sem, 1, value) != 0)
+    {
+        fprintf(stderr, "Error: failed creating semaphore.\n");
+        cleanup();
+        exit(1);
+    }
+
+    return sem;
+}
+
+void destroy_sem(sem_t *sem)
+{
+    sem_destroy(sem);
+    munmap(sem, sizeof(sem_t));
+}
+
+int *shuffle_id(int interval_size)
+{
+    int *interval = malloc(sizeof(int) * interval_size);
+    for (int i = 0; i < interval_size; i++)
+    {
+        interval[i] = i + 1;
+    }
+
+    for (int i = interval_size - 1; i > 0; i--)
+    {
+        int j = rand() % (i + 1);
+        int temp = interval[i];
+        interval[i] = interval[j];
+        interval[j] = temp;
+    }
+    return interval;
+}
+
+int *shared_int(int value)
+{
+    int *shared_int = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (shared_int == MAP_FAILED)
+    {
+        perror("Error: failed creating shared memory");
+        exit(1);
+    }
+
+    *shared_int = value;
+    return shared_int;
+}

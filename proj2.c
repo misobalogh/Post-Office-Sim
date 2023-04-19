@@ -15,174 +15,116 @@ static FILE *output_file;
 // static sem_t mutex[7];
 
 // global variables in shared memory
-int *num_of_prints;
-int *closed;
+int *num_of_prints = NULL;
+int *closed = NULL;
 
-sem_t queue[3];
-sem_t *closed_sem;
+int *customers_in_queue[3] = {0};
+
+sem_t *queue[3];
+sem_t *mutext_closing;
 sem_t *mutex;
+sem_t *mutex_print;
+sem_t *sem_customer;
+sem_t *sem_office_worker;
+sem_t *sem_customer_done;
+sem_t *sem_office_worker_done;
+
 
 //====================================================================================================
 
-int parse_args(int argc, char *argv[], int *NZ, int *NU, int *TZ, int *TU, int *F)
-{
-    const int expected_num_args = 5;
-
-    if (argc != expected_num_args + 1)
-    {
-        fprintf(stderr, "Error: wrong number of arguments.\n");
-        return 1;
-    }
-
-    // Array of pointers that stores values of arguments.
-    int *arg_values[] = {NZ, NU, TZ, TU, F};
-
-    // Constraints for size of arguments TZ, TU, F.
-    const int max_values[] = {INT_MAX, INT_MAX, 10000, 100, 10000};
-
-    // Names of arguments for error message.
-    const char *arg_names[] = {"NZ", "NU", "TZ", "TU", "F"};
-
-    // Validate arguments.
-    for (int i = 0; i < expected_num_args; i++)
-    {
-        int arg_value = validate_arg(argv[i + 1]);
-
-        if (arg_value < 0 || arg_value > max_values[i])
-        {
-            fprintf(stderr, "Error: invalid argument %s.\n", arg_names[i]);
-            return 1;
-        }
-        // Store argument value.
-        *(arg_values[i]) = arg_value;
-    }
-
-    return 0;
-}
-
-int validate_arg(char *arg)
-{
-    char *endptr;
-    const long arg_value = strtol(arg, &endptr, 10);
-    // Check if argument was successfully converted to long.
-    if (endptr == arg || arg_value > INT_MAX)
-    {
-        return -1;
-    }
-
-    return arg_value;
-}
-
-int open_file(FILE **file)
-{
-    *file = fopen("proj2.out", "w");
-    if (*file == NULL)
-    {
-        fprintf(stderr, "Error: failed opening file.\n");
-        return 1;
-    }
-
-    return 0;
-}
-
-sem_t *new_semaphore(unsigned int value)
-{
-    sem_t *sem = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (sem == MAP_FAILED)
-    {
-        fprintf(stderr, "Error: failed creating semaphore.\n");
-        cleanup();
-        exit(1);
-    }
-
-    if (sem_init(sem, 1, value) != 0)
-    {
-        fprintf(stderr, "Error: failed creating semaphore.\n");
-        cleanup();
-        exit(1);
-    }
-
-    return sem;
-}
-
-void destroy_sem(sem_t *sem)
-{
-    sem_destroy(sem);
-    munmap(sem, sizeof(sem_t));
-}
 
 void cleanup()
 {
     destroy_sem(mutex);
-    destroy_sem(closed_sem);
-    for(int i = 0; i < 3; i++)
+    destroy_sem(mutext_closing);
+    destroy_sem(mutex_print);
+    destroy_sem(sem_customer);
+    destroy_sem(sem_office_worker);
+    destroy_sem(sem_customer_done);
+    destroy_sem(sem_office_worker_done);
+    for (int i = 0; i < 3; i++)
     {
-        destroy_sem(&queue[i]);
+        destroy_sem(queue[i]);
     }
-    munmap(closed, sizeof(int)); //!
+    munmap(closed, sizeof(int));        //!
     munmap(num_of_prints, sizeof(int)); //!
 
     fclose(output_file);
 }
 
+
+
 void print(FILE *file, const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-    sem_wait(mutex);
+
+    sem_wait(mutex_print);
+
+    fprintf(stdout, "%d:  ", *num_of_prints);
+    vfprintf(stdout, format, args);
+    fflush(stdout);
+
+    va_end(args);
+
+    va_start(args, format);
+
     fprintf(file, "%d:  ", *num_of_prints);
     vfprintf(file, format, args);
     fflush(file);
+
     va_end(args);
+    
     ++(*num_of_prints);
-    sem_post(mutex);
-}
 
-
-int *shuffle_id(int interval_size)
-{
-    int *interval = malloc(sizeof(int) * interval_size);
-    for (int i = 0; i < interval_size; i++)
-    {
-        interval[i] = i + 1;
-    }
-
-    for (int i = interval_size - 1; i > 0; i--)
-    {
-        int j = rand() % (i + 1);
-        int temp = interval[i];
-        interval[i] = interval[j];
-        interval[j] = temp;
-    }
-    return interval;
+    sem_post(mutex_print);
 }
 
 void customer(int idZ, int TZ)
 {
     print(output_file, "Z %d: started\n", idZ);
-    // usleep random number from interval <0,TU>
+    // usleep random number from interval <0,TZ>
     usleep(rand() % (TZ + 1));
-
-    if (*closed) 
-    {
-        print(output_file, "Z %d: going home\n", idZ);
-        exit(0);
-    }
-
-    int activity_type = rand() % 3;
-    print(output_file, "Z %d: entering office for a service %d\n", idZ, activity_type+1);
-
-    sem_wait(&queue[activity_type]);
-
     
-        print(output_file, "Z %d: called by office worker\n", idZ);
-        // usleep random number from interval <0,10>
-        usleep(rand() % (10 + 1));
+    sem_wait(mutext_closing);
+    
+        if (*closed)
+        {
+            print(output_file, "Z %d: going home\n", idZ);
+            sem_post(mutext_closing);
+            exit(0);
+        }
 
-        print(output_file, "Z %d: going home\n", idZ);
+    sem_post(mutext_closing);
     
-    sem_post(&queue[activity_type]);
+    sem_wait(mutex);
+
+        int activity_type = rand() % 3;
+        (*customers_in_queue[activity_type])++;
+        printf("customers_in_queue[%d] = %d\n", activity_type, *customers_in_queue[activity_type]);
+        
+        print(output_file, "Z %d: entering office for a service %d\n", idZ, activity_type + 1);
     
+    sem_post(mutex);
+
+    sem_wait(queue[activity_type]);
+
+    print(output_file, "Z %d: called by office worker\n", idZ);
+    
+    // usleep random number from interval <0,10>
+    usleep(rand() % (10 + 1));
+    sem_post(sem_customer);
+    sem_wait(sem_office_worker_done);
+
+    print(output_file, "Z %d: going home\n", idZ);
+
+    sem_wait(mutex);
+    --(*customers_in_queue[activity_type]);
+    sem_post(mutex);
+
+    printf("dieta odislo\n");
+    fflush(stdout);
+
     exit(0);
 }
 
@@ -190,20 +132,28 @@ void office_worker(int Uid, int TU)
 {
     print(output_file, "U %d: started\n", Uid);
     while (1)
-    {
-        int queue_type;
-        int queue_size = 0;
+    { 
+        //sem_wait(mutex);
 
+        int queue_size = 0;
         // Check if any queue is not empty
         for (int i = 0; i < 3; i++)
         {
-            sem_getvalue(&queue[i], &queue_size);
+            queue_size = *customers_in_queue[i];
             if (queue_size != 0)
-            {
+            {   
                 break;
             }
         }
-        
+
+        sem_post(mutex);
+
+        printf("queue_size = %d\n", queue_size);
+        fflush(stdout);
+        printf("po dieatati\n");
+        fflush(stdout);
+
+        //sem_wait(mutext_closing);
         if (queue_size == 0)
         {
             // If all queues are empty, take a break
@@ -217,41 +167,38 @@ void office_worker(int Uid, int TU)
             print(output_file, "U %d: taking break\n", Uid);
             // usleep random number from interval <0,TU>
             usleep(rand() % (TU + 1));
-            print(output_file, "U %d: break finished\n", Uid);       
+            print(output_file, "U %d: break finished\n", Uid);
+            sem_post(mutext_closing);
             continue;
         }
-        else
+        sem_post(mutext_closing);
+
+        // Get random queue
+        sem_wait(mutex);
+
+        int activity_type;
+        for (activity_type = 0; activity_type < 3; activity_type++)
         {
-            // Get random queue
-            while (queue_size == 0)
+            queue_size = *customers_in_queue[activity_type];
+            if (queue_size != 0)
             {
-                queue_type = rand() % 3;
-                sem_getvalue(&queue[queue_type], &queue_size);
+                break;
             }
         }
-        
+        sem_post(mutex);
+                    
         // Serve customer
-        sem_wait(&queue[queue_type]);
+        sem_post(queue[activity_type]);
+        sem_trywait(sem_customer);
 
-        print(output_file, "U %d: serving a service of type X %d\n", Uid, queue_type);
+        print(output_file, "U %d: serving a service of type %d\n", Uid, activity_type + 1);
         usleep(rand() % (10 + 1));
-        print(output_file, "U %d:  service finished\n", Uid);
-        
-        sem_post(&queue[queue_type]);
-    }
-}
 
-int *shared_int(int value)
-{
-    int *shared_int = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (shared_int == MAP_FAILED)
-    {
-        perror("Error: failed creating shared memory");
-        exit(1);
-    }
+       
 
-    *shared_int = value;
-    return shared_int;
+        print(output_file, "U %d: service finished\n", Uid);
+        sem_post(sem_office_worker_done);
+    }
 }
 
 //================================== Main =====================================//
@@ -275,7 +222,7 @@ int main(int argc, char *argv[])
 
     // Seed random number generator
     srand(time(NULL));
-    
+
     // Create array of customers and workers
     int *customers_id = shuffle_id(NZ);
     int *office_workers_id = shuffle_id(NU);
@@ -283,50 +230,73 @@ int main(int argc, char *argv[])
     // Create variables in shared memory
     closed = shared_int(0);
     num_of_prints = shared_int(1);
+    for (int i = 0; i < 3; i++)
+    {
+        customers_in_queue[i] = shared_int(0);
+    }
 
     // Create semaphores
-    mutex = new_semaphore(1); 
-    queue[0] = *new_semaphore(1);
-    queue[1] = *new_semaphore(1);
-    queue[2] = *new_semaphore(1);
-    closed_sem = new_semaphore(1);
+    mutex = new_semaphore(1);
+    mutex_print = new_semaphore(1);
+    mutext_closing = new_semaphore(1);
 
-    // sem_t sem[NU];
-    // sem_t customer_done[NU];
-    // sem_t office_worker[NZ];
+    queue[0] = new_semaphore(0);
+    queue[1] = new_semaphore(0);
+    queue[2] = new_semaphore(0);
+
+    sem_customer = new_semaphore(0);
+    sem_office_worker = new_semaphore(0);
+    sem_customer_done = new_semaphore(0);
+    sem_office_worker_done = new_semaphore(0);
+
+
+    // Create processes
 
     for (int i = 0; i < NU; i++)
     {
-        pid_t pid = fork();
-        if (pid == 0)
+        pid_t pid_worker = fork();
+        if (pid_worker == 0)
         {
             office_worker(office_workers_id[i], TU);
+        }
+        else if (pid_worker < 0)
+        {
+            perror("Error: failed forking process office worker");
+            exit(1);
         }
     }
 
     for (int i = 0; i < NZ; i++)
     {
-        pid_t pid = fork();
-        if (pid == 0)
+        pid_t pid_customer = fork();
+        if (pid_customer == 0)
         {
             customer(customers_id[i], TZ);
         }
+        else if (pid_customer < 0)
+        {
+            perror("Error: failed forking process customer");
+            exit(1);
+        }
     }
+
+    // Wait for F seconds before closing post mail
 
     int time_before_closing = F / 2 + rand() % (F / 2 + 1);
     usleep(time_before_closing);
 
-    sem_wait(closed_sem);
+    sem_wait(mutext_closing);
     print(output_file, "closing\n");
     *closed = 1;
-    sem_post(closed_sem);
+    sem_post(mutext_closing);
 
-    while (wait(NULL) > 0);
+    while (wait(NULL) > 0)
+        ;
 
     // Free memory
     free(customers_id);
     free(office_workers_id);
-    
+
     cleanup();
 
     return 0;
