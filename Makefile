@@ -14,7 +14,8 @@ CC = gcc
 
 
 all: proj2
-	./proj2 3 2 100 100 100 && cat proj2.out
+	./proj2 3 2 100 100 100 
+#&& cat proj2.out
 
 proj2: proj2.c proj2.h
 	$(CC) $(CFLAGS) -o proj2 proj2.c

@@ -89,12 +89,6 @@ void cleanup();
 void print(FILE *file, const char *format, ...);
 
 /**
- * @brief Frees all shared memory.
- * 
- */
-void clean_memory();
-
-/**
  * @brief Creates new customer.
  * 
  * @param id Customer ID.
