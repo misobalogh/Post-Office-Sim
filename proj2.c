@@ -99,8 +99,6 @@ void customer(int idZ, int TZ)
     sem_wait(mutex);
         srand(getpid());
         int activity_type = rand() % 3;
-        printf("Z %d: activity type %d\n", idZ, activity_type);
-        fflush(stdout);
         (*customers_in_queue[activity_type])++;        
         print(output_file, "Z %d: entering office for a service %d\n", idZ, activity_type + 1);
     sem_post(mutex);
@@ -114,10 +112,6 @@ void customer(int idZ, int TZ)
     sem_wait(sem_office_worker_done);
 
     print(output_file, "Z %d: going home\n", idZ);
-
-    sem_wait(mutex);
-    (*customers_in_queue[activity_type])-=1;
-    sem_post(mutex);
 
     sem_post(sem_customer_done);
     cleanup();
@@ -180,7 +174,12 @@ void office_worker(int Uid, int TU)
                     
         // Serve customer
         sem_post(queue[activity_type]);
-        sem_trywait(sem_customer);
+
+        sem_wait(mutex);
+        (*customers_in_queue[activity_type])-=1;
+        sem_post(mutex);
+
+        sem_wait(sem_customer);
 
         print(output_file, "U %d: serving a service of type %d\n", Uid, activity_type + 1);
         usleep(rand() % (10 + 1));
@@ -188,7 +187,7 @@ void office_worker(int Uid, int TU)
         print(output_file, "U %d: service finished\n", Uid);
 
         sem_post(sem_office_worker_done);
-        sem_trywait(sem_customer_done);
+        sem_wait(sem_customer_done);
     }
 }
 
