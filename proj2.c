@@ -140,16 +140,17 @@ void office_worker(int Uid, int TU)
         sem_wait(mutext_closing);
         if (queue_size == 0)
         {
-            // If all queues are empty, take a break
-            
             sem_post(mutext_closing);
+            // If post mail is closed and all queues are empty, go home
             if (*closed)
             {
-                // If post mail is closed and all queues are empty, go home
+                sem_post(mutext_closing);
                 print(output_file, "U %d: going home\n", Uid);
                 cleanup();
                 exit(0);
             }
+            
+            // If all queues are empty, take a break           
             print(output_file, "U %d: taking break\n", Uid);
             // usleep random number from interval <0,TU>
             usleep(rand() % (TU + 1));
@@ -172,12 +173,11 @@ void office_worker(int Uid, int TU)
         }
         sem_post(mutex);
                     
-        // Serve customer
-        sem_post(queue[activity_type]);
-
         sem_wait(mutex);
         (*customers_in_queue[activity_type])-=1;
         sem_post(mutex);
+        // Serve customer
+        sem_post(queue[activity_type]);       
 
         sem_wait(sem_customer);
 
@@ -197,6 +197,7 @@ void office_worker(int Uid, int TU)
 
 int main(int argc, char *argv[])
 {
+    cleanup();
     int NZ, NU, TZ, TU, F;
     if (parse_args(argc, argv, &NZ, &NU, &TZ, &TU, &F) == 1)
     {
