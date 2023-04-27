@@ -197,7 +197,6 @@ void office_worker(int Uid, int TU)
 
 int main(int argc, char *argv[])
 {
-    cleanup();
     int NZ, NU, TZ, TU, F;
     if (parse_args(argc, argv, &NZ, &NU, &TZ, &TU, &F) == 1)
     {
