@@ -3,7 +3,7 @@
 * Description: riesnie IJC-DU2, priklad b) datova struktura htab_t
 * Author: MICHAL BALOGH <xbalog06@stud.fit.vutbr.cz
 * Faculty: FIT VUT
-* Date: 28.03.2023
+* Date: 28.04.2023
 
 * Comments: prekladane pomocou gcc 9.4.0
 ***************************************************************/
@@ -20,10 +20,11 @@ int *closed;
 
 int *customers_in_queue[3] = {0};
 
-sem_t *queue[3];
 sem_t *mutext_closing;
 sem_t *mutex;
 sem_t *mutex_print;
+
+sem_t *queue[3];
 sem_t *sem_customer[3];
 sem_t *sem_customer_done[3];
 
@@ -151,25 +152,18 @@ void cleanup()
 
 void print(FILE *file, const char *format, ...)
 {
-    sem_wait(mutex_print);
+    sem_wait(mutex_print); // prevent multiple processes from printing at the same time.
+    
     va_list args;
-
-    //! Remove print on stdout
-    /*va_start(args, format);
-    fprintf(stdout, "%d:  ", *num_of_prints);
-    vfprintf(stdout, format, args);
-    fflush(stdout);
-    va_end(args);*/
-
     va_start(args, format);
     fprintf(file, "%d:  ", *num_of_prints);
     vfprintf(file, format, args);
     fflush(file);
     va_end(args);
 
-    ++(*num_of_prints);
+    ++(*num_of_prints); // increment number of printed messages in output file
 
-    sem_post(mutex_print);
+    sem_post(mutex_print); // end of critical section
 }
 
 void customer(int idZ, int TZ)
@@ -181,7 +175,7 @@ void customer(int idZ, int TZ)
     usleep(rand() % (TZ + 1));
 
     // check if office is closed
-    sem_wait(mutext_closing);
+    sem_wait(mutext_closing); // start of critical section
     if (*closed)
     {
         print(output_file, "Z %d: going home\n", idZ);
@@ -190,13 +184,12 @@ void customer(int idZ, int TZ)
         exit(0);
     }
     
-    // choose activity type and enter queue
-
+    // choose activity type and enter queue for that activity
     int activity_type = rand() % 3;
     ++(*customers_in_queue[activity_type]);
     print(output_file, "Z %d: entering office for a service %d\n", idZ, activity_type + 1);
     
-    sem_post(mutext_closing);
+    sem_post(mutext_closing); // end of critical section
 
     // wait for office worker signal customer
     sem_wait(queue[activity_type]);
@@ -204,11 +197,13 @@ void customer(int idZ, int TZ)
 
     // usleep random number from interval <0,10>
     usleep(rand() % (10 + 1));
+
+    // signal office worker that customer is done with request
     sem_post(sem_customer[activity_type]);
 
     print(output_file, "Z %d: going home\n", idZ);
 
-    // signal office worker that customer is done
+    // signal office worker that customer is going home
     sem_post(sem_customer_done[activity_type]);
     
     cleanup();
@@ -222,7 +217,7 @@ void office_worker(int Uid, int TU)
     {
         int queue_size = 0;
 
-        sem_wait(mutext_closing);
+        sem_wait(mutext_closing); // start of critical section
         // Check if any queue is not empty
         for (int i = 0; i < 3; i++)
         {
@@ -232,20 +227,20 @@ void office_worker(int Uid, int TU)
                 break;
             }
         }
-        
+        // queues are empty:
         if (queue_size == 0)
         {
             
-            // If post mail is closed and all queues are empty, go home
+            // if post mail is closed and all queues are empty, go home
             if (*closed)
             {
-                sem_post(mutext_closing);
                 print(output_file, "U %d: going home\n", Uid);
+                sem_post(mutext_closing);
                 cleanup();
                 exit(0);
             }
 
-            // If all queues are empty, take a break
+            // if all queues are empty, take a break
             print(output_file, "U %d: taking break\n", Uid);
             sem_post(mutext_closing);
             // usleep random number from interval <0,TU>
@@ -253,7 +248,7 @@ void office_worker(int Uid, int TU)
             print(output_file, "U %d: break finished\n", Uid);
             continue;
         }
-        sem_post(mutext_closing);
+        sem_post(mutext_closing); // end of critical section
 
         int activity_type;
         int non_empty_queue[3] = {0};
@@ -289,20 +284,19 @@ void office_worker(int Uid, int TU)
         // Serve customer
         sem_post(queue[activity_type]);
 
+        // wait for customer to signal that he is done
         sem_wait(sem_customer[activity_type]);
 
         print(output_file, "U %d: serving a service of type %d\n", Uid, activity_type + 1);
         usleep(rand() % (10 + 1));
 
         print(output_file, "U %d: service finished\n", Uid);
+        // wait for customer to signal that he is going home
         sem_wait(sem_customer_done[activity_type]);
     }
 }
 
 //================================== Main =====================================//
-
-//! Remove print on stdout
-// ./proj2 NZ NU TZ TU F
 
 int main(int argc, char *argv[])
 {
@@ -343,7 +337,6 @@ int main(int argc, char *argv[])
         sem_customer_done[i] = new_semaphore(0);
     }
     // Create semaphores
-    //sem_customer = new_semaphore(0);
 
     // Create office worker processes 
     for (int i = 0; i < NU; i++)
@@ -366,7 +359,6 @@ int main(int argc, char *argv[])
         pid_t pid_customer = fork();
         if (pid_customer == 0)
         {
-
             customer(i + 1, TZ);
         }
         else if (pid_customer < 0)
