@@ -13,9 +13,10 @@ CFLAGS = -std=gnu99 -pthread -Wall -Wextra -Werror -pedantic
 CC = gcc
 NUM_RUNS := 100
 
+all: proj2
+
 run: proj2
-	./proj2 3 2 100 100 100 
-#&& cat proj2.out
+	./proj2 3 2 100 100 100 && cat proj2.out
 
 loop:
 	for i in $$(seq 1 $(NUM_RUNS)); do \

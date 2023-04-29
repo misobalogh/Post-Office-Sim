@@ -53,27 +53,16 @@ void cleanup()
 }
 
 
-
 void print(FILE *file, const char *format, ...)
 {
     //! Remove print on stdout
-    va_list args;
-    va_start(args, format);
-
     sem_wait(mutex_print);
 
-    fprintf(stdout, "%d:  ", *num_of_prints);
-    vfprintf(stdout, format, args);
-    fflush(stdout);
-
-    va_end(args);
-
+    va_list args;
     va_start(args, format);
-
     fprintf(file, "%d:  ", *num_of_prints);
     vfprintf(file, format, args);
     fflush(file);
-
     va_end(args);
     
     ++(*num_of_prints);
@@ -83,6 +72,7 @@ void print(FILE *file, const char *format, ...)
 
 void customer(int idZ, int TZ)
 {
+    srand(getpid());
     print(output_file, "Z %d: started\n", idZ);
     // usleep random number from interval <0,TZ>
     usleep(rand() % (TZ + 1));
@@ -98,7 +88,6 @@ void customer(int idZ, int TZ)
     sem_post(mutext_closing);
     
     sem_wait(mutex);
-        srand(getpid());
         int activity_type = rand() % 3;
         (*customers_in_queue[activity_type])++;        
         print(output_file, "Z %d: entering office for a service %d\n", idZ, activity_type + 1);
@@ -110,6 +99,7 @@ void customer(int idZ, int TZ)
     // usleep random number from interval <0,10>
     usleep(rand() % (10 + 1));
     sem_post(sem_customer);
+
 
     print(output_file, "Z %d: going home\n", idZ);
 
@@ -160,22 +150,30 @@ void office_worker(int Uid, int TU)
         sem_post(mutext_closing);
 
         int activity_type;
-
+        int non_empty_queue[3] = {0};
+        int number_of_non_empty_queues = 0;
+        
         // Get random queue
         sem_wait(mutex);
+        // Get all non empty queues
         for (activity_type = 0; activity_type < 3; activity_type++)
         {
             queue_size = *customers_in_queue[activity_type];
             if (queue_size != 0)
             {
-                break;
+                non_empty_queue[number_of_non_empty_queues] = activity_type;
+                number_of_non_empty_queues++;
             }
         }
+        // Choose random queue from non empty queues
+        activity_type = non_empty_queue[rand() % number_of_non_empty_queues];
         sem_post(mutex);
                     
+        // Get customer from queue
         sem_wait(mutex);
-        (*customers_in_queue[activity_type])-=1;
+        --(*customers_in_queue[activity_type]);
         sem_post(mutex);
+        
         // Serve customer
         sem_post(queue[activity_type]);       
 
