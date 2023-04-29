@@ -8,7 +8,6 @@
 * Comments: prekladane pomocou gcc 9.4.0
 ***************************************************************/
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -23,12 +22,6 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
-
-// sem_init(&sem, 0, 1);
-// sem_wait(&sem);
-// sem_post(&sem);
-// sem_destroy(&sem); 
-
 //====================================================================================================
 
 /**
@@ -42,7 +35,7 @@
  * @param TU Maximum break time in milliseconds for workers. 0<=TU<=100
  * @param F Maximum time in milliseconds that the post office is closed for new customers. 0<=F<=10000
  * 
- * @return int 0 if success, 1 if error.
+ * Exit with error code 1 if arguments are invalid.
  */
 void parse_args(int argc, char *argv[], int *NZ, int *NU, int *TZ, int *TU, int *F);
 
@@ -56,13 +49,13 @@ void parse_args(int argc, char *argv[], int *NZ, int *NU, int *TZ, int *TU, int 
 int validate_arg(char *arg);
 
 /**
- * @brief Opens file for writing.
+ * @brief Opens file 'proj2.out' for writing.
  * 
- * @param file Pointer to file.
+ * @param file Pointer to the output file.
  * 
- * @return 1 if error, else 0.
+ * Exit with error code 1 if file cannot be opened.
  */
-void open_file(FILE **file);
+void open_output_file(FILE **file);
 
 /**
  * @brief Creates new semaphore.
@@ -91,16 +84,20 @@ void print(FILE *file, const char *format, ...);
 /**
  * @brief Creates new customer.
  * 
- * @param id Customer ID.
+ * @param idz Customers ID.
+ * @param TZ Maximum time in milliseconds that customers waits before leaving without being served.
+ *  0<=TZ<=10000
  */
-void customer(int id, int activity_type);
+void customer(int idZ, int TZ);
 
 /**
  * @brief Creates new office worker.
  * 
- * @param id Office worker ID.
+ * @param Uid Office workers ID.
+ * @param TU Maximum break time in milliseconds workers take,
+ * if there are no customers to serve. 0<=TU<=100
  */
-void office_worker(int id, int TU);
+void office_worker(int Uid, int TU);
 
 /**
  * @brief Creates new shared variable of type int.
@@ -114,116 +111,3 @@ int* shared_int(int value);
 //====================================================================================================
 
 
-void parse_args(int argc, char *argv[], int *NZ, int *NU, int *TZ, int *TU, int *F)
-{
-    const int expected_num_args = 5;
-
-    if (argc != expected_num_args + 1)
-    {
-        fprintf(stderr, "Error: invalid number of arguments.\n");
-        exit(1);
-    }
-
-    // Array of pointers that stores values of arguments.
-    int *arg_values[] = {NZ, NU, TZ, TU, F};
-
-    // Constraints for size of arguments TZ, TU, F.
-    const int max_values[] = {INT_MAX, INT_MAX, 10000, 100, 10000};
-
-    // Names of arguments for error message.
-    const char *arg_names[] = {"NZ", "NU", "TZ", "TU", "F"};
-
-    // Validate arguments.
-    for (int i = 0; i < expected_num_args; i++)
-    {
-        int arg_value = validate_arg(argv[i + 1]);
-
-        if (arg_value < 0 || arg_value > max_values[i])
-        {
-            fprintf(stderr, "Error: invalid argument %s.\n", arg_names[i]);
-            exit(1);
-        }
-        // Store argument value.
-        *(arg_values[i]) = arg_value;
-    }
-}
-
-int validate_arg(char *arg)
-{
-    char *endptr;
-    const long arg_value = strtol(arg, &endptr, 10);
-    // Check if argument was successfully converted to long.
-    if (endptr == arg || arg_value > INT_MAX)
-    {
-        return -1;
-    }
-
-    return arg_value;
-}
-
-void open_file(FILE **file)
-{
-    *file = fopen("proj2.out", "w");
-    if (*file == NULL)
-    {
-        perror("Error: failed opening file.");
-        exit(1);
-    }
-}
-
-sem_t *new_semaphore(unsigned int value)
-{
-    sem_t *sem = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (sem == MAP_FAILED)
-    {
-        perror("Error: failed mapping semaphore.");
-        cleanup();
-        exit(1);
-    }
-
-    if (sem_init(sem, 1, value) != 0)
-    {
-        perror("Error: failed creating semaphore.");
-        cleanup();
-        exit(1);
-    }
-
-    return sem;
-}
-
-void destroy_sem(sem_t *sem)
-{
-    sem_destroy(sem);
-    munmap(sem, sizeof(sem_t));
-}
-
-int *shuffle_id(int interval_size)
-{
-    int *interval = malloc(sizeof(int) * interval_size);
-    for (int i = 0; i < interval_size; i++)
-    {
-        interval[i] = i + 1;
-    }
-
-    for (int i = interval_size - 1; i > 0; i--)
-    {
-        int j = rand() % (i + 1);
-        int temp = interval[i];
-        interval[i] = interval[j];
-        interval[j] = temp;
-    }
-    return interval;
-}
-
-int *shared_int(int value)
-{
-    int *shared_int = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (shared_int == MAP_FAILED)
-    {
-        perror("Error: failed creating shared memory");
-        exit(1);
-    }
-
-    *shared_int = value;
-    return shared_int;
-}

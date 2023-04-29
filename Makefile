@@ -11,7 +11,7 @@
 
 CFLAGS = -std=gnu99 -pthread -Wall -Wextra -Werror -pedantic
 CC = gcc
-NUM_RUNS := 100
+NUM_RUNS := 1000
 
 all: proj2
 
@@ -21,7 +21,7 @@ run: proj2
 loop:
 	for i in $$(seq 1 $(NUM_RUNS)); do \
 		echo "Running iteration: $$i"; \
-		./proj2 3 2 100 100 100; \
+		./proj2 38 32 427 7 1084; \
 	done
 
 
