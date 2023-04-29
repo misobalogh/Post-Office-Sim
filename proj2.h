@@ -44,7 +44,7 @@
  * 
  * @return int 0 if success, 1 if error.
  */
-int parse_args(int argc, char *argv[], int *NZ, int *NU, int *TZ, int *TU, int *F);
+void parse_args(int argc, char *argv[], int *NZ, int *NU, int *TZ, int *TU, int *F);
 
 /**
  * @brief Validate argument and convert it to int.
@@ -62,7 +62,7 @@ int validate_arg(char *arg);
  * 
  * @return 1 if error, else 0.
  */
-int open_file(FILE **file);
+void open_file(FILE **file);
 
 /**
  * @brief Creates new semaphore.
@@ -114,14 +114,14 @@ int* shared_int(int value);
 //====================================================================================================
 
 
-int parse_args(int argc, char *argv[], int *NZ, int *NU, int *TZ, int *TU, int *F)
+void parse_args(int argc, char *argv[], int *NZ, int *NU, int *TZ, int *TU, int *F)
 {
     const int expected_num_args = 5;
 
     if (argc != expected_num_args + 1)
     {
-        fprintf(stderr, "Error: wrong number of arguments.\n");
-        return 1;
+        fprintf(stderr, "Error: invalid number of arguments.\n");
+        exit(1);
     }
 
     // Array of pointers that stores values of arguments.
@@ -141,13 +141,11 @@ int parse_args(int argc, char *argv[], int *NZ, int *NU, int *TZ, int *TU, int *
         if (arg_value < 0 || arg_value > max_values[i])
         {
             fprintf(stderr, "Error: invalid argument %s.\n", arg_names[i]);
-            return 1;
+            exit(1);
         }
         // Store argument value.
         *(arg_values[i]) = arg_value;
     }
-
-    return 0;
 }
 
 int validate_arg(char *arg)
@@ -163,16 +161,14 @@ int validate_arg(char *arg)
     return arg_value;
 }
 
-int open_file(FILE **file)
+void open_file(FILE **file)
 {
     *file = fopen("proj2.out", "w");
     if (*file == NULL)
     {
-        fprintf(stderr, "Error: failed opening file.\n");
-        return 1;
+        perror("Error: failed opening file.");
+        exit(1);
     }
-
-    return 0;
 }
 
 sem_t *new_semaphore(unsigned int value)
@@ -180,14 +176,14 @@ sem_t *new_semaphore(unsigned int value)
     sem_t *sem = mmap(NULL, sizeof(sem_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (sem == MAP_FAILED)
     {
-        fprintf(stderr, "Error: failed creating semaphore.\n");
+        perror("Error: failed mapping semaphore.");
         cleanup();
         exit(1);
     }
 
     if (sem_init(sem, 1, value) != 0)
     {
-        fprintf(stderr, "Error: failed creating semaphore.\n");
+        perror("Error: failed creating semaphore.");
         cleanup();
         exit(1);
     }

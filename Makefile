@@ -13,15 +13,16 @@ CFLAGS = -std=gnu99 -pthread -Wall -Wextra -Werror -pedantic
 CC = gcc
 NUM_RUNS := 100
 
-run:
-	./proj2 3 2 100 100 100
+run: proj2
+	./proj2 3 2 100 100 100 
+#&& cat proj2.out
 
 loop:
 	for i in $$(seq 1 $(NUM_RUNS)); do \
 		echo "Running iteration: $$i"; \
 		./proj2 3 2 100 100 100; \
 	done
-#&& cat proj2.out
+
 
 proj2: proj2.c proj2.h
 	$(CC) $(CFLAGS) -o proj2 proj2.c

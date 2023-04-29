@@ -56,6 +56,7 @@ void cleanup()
 
 void print(FILE *file, const char *format, ...)
 {
+    //! Remove print on stdout
     va_list args;
     va_start(args, format);
 
@@ -109,7 +110,6 @@ void customer(int idZ, int TZ)
     // usleep random number from interval <0,10>
     usleep(rand() % (10 + 1));
     sem_post(sem_customer);
-    sem_wait(sem_office_worker_done);
 
     print(output_file, "Z %d: going home\n", idZ);
 
@@ -185,30 +185,25 @@ void office_worker(int Uid, int TU)
         usleep(rand() % (10 + 1));
 
         print(output_file, "U %d: service finished\n", Uid);
-
-        sem_post(sem_office_worker_done);
         sem_wait(sem_customer_done);
     }
 }
 
 //================================== Main =====================================//
 
+
+//! Remove print on stdout
 // ./proj2 NZ NU TZ TU F
 
 int main(int argc, char *argv[])
 {
     int NZ, NU, TZ, TU, F;
-    if (parse_args(argc, argv, &NZ, &NU, &TZ, &TU, &F) == 1)
-    {
-        // Invalid Arguments
-        return 1;
-    }
 
-    if (open_file(&output_file) != 0)
-    {
-        // Error opening file
-        return 1;
-    }
+    // Parse arguments, errors are handled in the function
+    parse_args(argc, argv, &NZ, &NU, &TZ, &TU, &F);
+
+    // Open output file, errors are handled in the function
+    open_file(&output_file);
 
     // Seed random number generator
     srand(time(NULL));
@@ -235,7 +230,6 @@ int main(int argc, char *argv[])
     sem_customer_done = new_semaphore(0);
     sem_office_worker_done = new_semaphore(0);
 
-
     // Create processes
     for (int i = 0; i < NU; i++)
     {
@@ -256,6 +250,7 @@ int main(int argc, char *argv[])
         pid_t pid_customer = fork();
         if (pid_customer == 0)
         {
+
             customer(i+1, TZ);
         }
         else if (pid_customer < 0)
@@ -265,7 +260,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Wait for F seconds before closing post mail
+    // Wait for 'F argument' seconds before closing post mail
     int time_before_closing = (F / 2) + rand() % (F / 2 + 1);
     usleep(time_before_closing);
 
@@ -278,8 +273,6 @@ int main(int argc, char *argv[])
         ;
 
     // Free memory
-    
-
     cleanup();
 
     return 0;
