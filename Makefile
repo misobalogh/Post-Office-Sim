@@ -8,7 +8,7 @@
 # * Comments: prekladane pomocou gcc 9.4.0
 # ***************************************************************
 
-CFLAGS = -std=gnu99 -Wall -Wextra -Werror -pedantic
+CFLAGS = -std=gnu99 -Wall -Wextra -Werror -pedantic -pthread
 CC = gcc
 NUM_RUNS := 1000
 
