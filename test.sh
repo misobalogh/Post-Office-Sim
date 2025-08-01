@@ -27,7 +27,7 @@ testsInv=(
 echo "Valid aruments:"
 for i in "${!testsVal[@]}"; do
     echo "Test $((i+1)):"
-    ./proj2 ${testsVal[$i]}
+    ./post_office_sim ${testsVal[$i]}
     if [ $? -eq 0 ]; then
         echo "OK✅"
     else
@@ -39,7 +39,7 @@ done
 echo "Invalid aruments:"
 for i in "${!testsInv[@]}"; do
     echo "Test $((i+1)):"
-    ./proj2 ${testsInv[$i]}
+    ./post_office_sim ${testsInv[$i]}
     if [ $? -eq 1 ]; then
         echo "OK✅"
     else

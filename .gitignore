@@ -1,2 +1,6 @@
 /.vscode
-/proj2
+
+*.o
+*.obj
+*.exe
+*.out
